@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Item;
+use App\Models\ItemCategoryMapping;
 use Illuminate\Support\Facades\Response;
 
 class ItemController extends Controller
@@ -13,9 +14,9 @@ class ItemController extends Controller
      */
     public function index()
     {
-        $item = Item::get();
+        $items = Item::with(['category.info'])->get();
         return Response::json([
-            'data' => $item,
+            'data' => $items,
             'success' => true
         ]);
     }
@@ -28,8 +29,10 @@ class ItemController extends Controller
         $validated = $request->validate([
             'name' => 'required|unique:items',
             'desc' => 'required',
-            'price' => 'required',
-            'qty' => 'required',
+            'price' => 'required|numeric|gt:0',
+            'qty' => 'required|numeric|gt:0',
+            'cat_id' => 'required|array|min:1',
+            'cat_id.*' => 'required|numeric|exists:categories,id',
         ]);
 
         $item = new Item;
@@ -38,6 +41,21 @@ class ItemController extends Controller
         $item->price = $request->price;
         $item->qty = $request->qty;
         $item->save();
+
+        $itemsArray = [];
+        $cat = $request->cat_id;
+        foreach($cat as $value) {            
+            $itemsArray[] = [
+                'item_id' => $item->id,
+                'cat_id' => $value,
+                'created_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s')
+            ];
+        }
+        if(count($itemsArray)) {
+            // multiple insert in a single query
+            ItemCategoryMapping::insert($itemsArray);
+        }
 
         return Response::json([
             'data' => $item,
@@ -50,20 +68,12 @@ class ItemController extends Controller
      */
     public function show(string $id)
     {
-        $item = Item::find($id);
-
-        if ($item) {
-            return Response::json([
-                'data' => $item,
-                'success' => true
-            ]);
-        } else {
-            return Response::json([
-                'data' => $item,
-                'success' => false,
-                'message' => 'Item not found'
-            ], 404);
-        }
+        $item = Item::with(['category.info'])->find($id);
+        
+        return Response::json([
+            'data' => $item,
+            'success' => true
+        ]);
     }
 
     /**
@@ -71,32 +81,47 @@ class ItemController extends Controller
      */
     public function update(string $id, Request $request,)
     {
+        $item = Item::find($id);
         $validated = $request->validate([
-            'name' => 'required|unique:items',
+            'name' => 'required|max:255|unique:items,name,' . $id,
             'desc' => 'required',
-            'price' => 'required',
-            'qty' => 'required',
+            'price' => 'required|numeric|gt:0',
+            'qty' => 'required|numeric',
+            'cat_id' => 'required|array|min:1',
+            'cat_id.*' => 'required|numeric|exists:categories,id'
         ]);
 
         $item = Item::find($id);
-        if ($item) {
-            $item->name = $request->name;
-            $item->desc = $request->desc;
-            $item->price = $request->price;
-            $item->qty = $request->qty;
-            $item->save();
 
-            return Response::json([
-                'data' => $item,
-                'success' => true
-            ]);
-        } else {
-            return Response::json([
-                'data' => $item,
-                'success' => false,
-                'message' => 'item not found'
-            ], 404);
+        $item->name = $request->name;
+        $item->desc = $request->desc;
+        $item->price = $request->price;
+        $item->qty = $request->qty;
+        $item->save();
+
+        ItemCategoryMapping::where('item_id', $item->id)->delete();
+
+        // Insert data in the mapping table(i.e category_items table)
+        $itemsArray = [];
+        $cat = $request->cat_id;
+        foreach($cat as $value) {            
+            $itemsArray[] = [
+                'item_id' => $item->id,
+                'cat_id' => $value,
+                'created_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s')
+            ];
         }
+        if(count($itemsArray)) {
+            // multiple insert in a single query
+            ItemCategoryMapping::insert($itemsArray);
+        }
+
+        return Response::json([
+            'data' => $item,
+            'success' => true,
+            'message' => 'Item updated successfully'
+        ]);
     }
 
     /**
@@ -113,7 +138,7 @@ class ItemController extends Controller
             ]);
         } else {
             return Response::json([
-                'message' => 'Deleted successfully',
+                'message' => 'Item not found',
                 'success' => false
             ], 400);
         }

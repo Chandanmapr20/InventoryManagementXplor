@@ -21,5 +21,7 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     // inv
 });
 
-Route::resource('item', ItemController::class);
-Route::resource('category', CategoryController::class);
+Route::group(['middleware' => ['api_auth']], function () {
+    Route::resource('category', CategoryController::class);
+    Route::resource('item', ItemController::class);
+});
