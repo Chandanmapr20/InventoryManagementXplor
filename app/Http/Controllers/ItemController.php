@@ -176,8 +176,7 @@ class ItemController extends Controller
         } else {
             return Response::json([
                 'message' => 'Item not found',
-                'success' => false,
-                'message' => $message
+                'success' => false
             ], 400);
         }
     }
