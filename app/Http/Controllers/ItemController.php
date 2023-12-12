@@ -6,6 +6,10 @@ use Illuminate\Http\Request;
 use App\Models\Item;
 use App\Models\ItemCategoryMapping;
 use Illuminate\Support\Facades\Response;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\ItemNotificationEmail;
+use App\Mail\ItemNotificationUpdateEmail;
+use App\Mail\ItemNotificationDeleteEmail;
 
 class ItemController extends Controller
 {
@@ -57,9 +61,22 @@ class ItemController extends Controller
             ItemCategoryMapping::insert($itemsArray);
         }
 
+        $toEmail = env('TO_NOTIFICATION_EMAIL');
+        $toCCEmail = env('TO_NOTIFICATION_CC_EMAIL');
+        try{
+            Mail::to($toEmail)
+            ->cc($toCCEmail)
+            ->send(new ItemNotificationEmail($item));
+            $message = 'Item created and Email sent successfully!';
+        }
+        catch(\Exception $e){
+            $message = 'Email Failed: '.$e->getMessage();
+        }
+
         return Response::json([
             'data' => $item,
-            'success' => true
+            'success' => true,
+            'message' => $message
         ], 201);
     }
 
@@ -101,7 +118,6 @@ class ItemController extends Controller
 
         ItemCategoryMapping::where('item_id', $item->id)->delete();
 
-        // Insert data in the mapping table(i.e category_items table)
         $itemsArray = [];
         $cat = $request->cat_id;
         foreach($cat as $value) {            
@@ -113,14 +129,23 @@ class ItemController extends Controller
             ];
         }
         if(count($itemsArray)) {
-            // multiple insert in a single query
             ItemCategoryMapping::insert($itemsArray);
+        }
+
+        try{
+            Mail::to("chandhanm20@gmail.com")
+            ->cc(["test@gmail.com"])
+            ->send(new ItemNotificationUpdateEmail($item));
+            $message = 'Item updated and Email sent successfully!';
+        }
+        catch(\Exception $e){
+            $message = 'Email Failed: '.$e->getMessage();
         }
 
         return Response::json([
             'data' => $item,
             'success' => true,
-            'message' => 'Item updated successfully'
+            'message' => $message
         ]);
     }
 
@@ -132,14 +157,27 @@ class ItemController extends Controller
         $item = Item::find($id);
         if ($item) {
             $item->delete();
+
+            try{
+                Mail::to("chandhanm20@gmail.com")
+                ->cc(["test@gmail.com"])
+                ->send(new ItemNotificationDeleteEmail($item));
+                $message = 'Item Deleted and Email sent successfully!';
+            }
+            catch(\Exception $e){
+                $message = 'Email Failed: '.$e->getMessage();
+            }
+            
             return Response::json([
                 'message' => 'Deleted successfully',
-                'success' => true
+                'success' => true,
+                'message' => $message
             ]);
         } else {
             return Response::json([
                 'message' => 'Item not found',
-                'success' => false
+                'success' => false,
+                'message' => $message
             ], 400);
         }
     }
