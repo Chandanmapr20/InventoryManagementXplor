@@ -103,7 +103,7 @@ class ItemController extends Controller
             'name' => 'required|max:255|unique:items,name,' . $id,
             'desc' => 'required',
             'price' => 'required|numeric|gt:0',
-            'qty' => 'required|numeric',
+            'qty' => 'required|numeric|gt:0',
             'cat_id' => 'required|array|min:1',
             'cat_id.*' => 'required|numeric|exists:categories,id'
         ]);
@@ -132,9 +132,11 @@ class ItemController extends Controller
             ItemCategoryMapping::insert($itemsArray);
         }
 
+        $toEmail = env('TO_NOTIFICATION_EMAIL');
+        $toCCEmail = env('TO_NOTIFICATION_CC_EMAIL');
         try{
-            Mail::to("chandhanm20@gmail.com")
-            ->cc(["test@gmail.com"])
+            Mail::to($toEmail)
+            ->cc($toCCEmail)
             ->send(new ItemNotificationUpdateEmail($item));
             $message = 'Item updated and Email sent successfully!';
         }
@@ -157,10 +159,11 @@ class ItemController extends Controller
         $item = Item::find($id);
         if ($item) {
             $item->delete();
-
+            $toEmail = env('TO_NOTIFICATION_EMAIL');
+            $toCCEmail = env('TO_NOTIFICATION_CC_EMAIL');
             try{
-                Mail::to("chandhanm20@gmail.com")
-                ->cc(["test@gmail.com"])
+                Mail::to($toEmail)
+                ->cc($toCCEmail)
                 ->send(new ItemNotificationDeleteEmail($item));
                 $message = 'Item Deleted and Email sent successfully!';
             }
